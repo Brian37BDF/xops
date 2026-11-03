@@ -1,0 +1,233 @@
+<meta charset="utf-8">
+<title>X Operations</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+  /* Layout: one full-height stage; the 4:3 game canvas is centred and letterboxed, a briefing-style start card sits over it. */
+  :root {
+    --bg: #12140e;         /* olive-black field */
+    --panel: #1c1f16;      /* briefing panel */
+    --line: #3a3d2c;       /* olive rule */
+    --fg: #d9d3bd;         /* khaki text */
+    --dim: #8f8b74;        /* muted khaki */
+    --accent: #e08a2c;     /* briefing orange, as in the game's mission titles */
+    --accent-ink: #1a1206;
+    --alert: #c8553d;
+    --display: "Saira Stencil One", "Arial Black", Impact, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "Share Tech Mono", ui-monospace, "Courier New", monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--body); overflow: hidden; }
+
+  #stage {
+    position: fixed; inset: 0; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  #canvas { display: block; background: #000; outline: none; max-width: 100%; }
+
+  #overlay {
+    position: fixed; inset: 0; z-index: 5; box-sizing: border-box; overflow-y: auto;
+    display: flex; align-items: center; justify-content: center;
+    padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    background:
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.18) 3px 4px),
+      radial-gradient(ellipse at 50% 30%, #23271a 0%, var(--bg) 70%);
+  }
+  .card { width: 100%; max-width: 560px; display: grid; gap: 20px; }
+  .eyebrow { font: 13px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+  h1 { margin: 0; font: 400 clamp(40px, 9vw, 72px)/0.95 var(--display); letter-spacing: .02em; color: var(--fg); text-wrap: balance; }
+  h1 span { color: var(--accent); }
+  .lede { margin: 0; color: var(--dim); max-width: 60ch; }
+
+  .load { display: grid; gap: 8px; }
+  .bar { height: 4px; background: var(--line); overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  #status { font: 13px var(--mono); color: var(--dim); font-variant-numeric: tabular-nums; min-height: 1.4em; }
+
+  #start {
+    justify-self: start; font: 600 15px var(--body); letter-spacing: .08em; text-transform: uppercase;
+    padding: 12px 28px; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+  }
+  #start:hover { filter: brightness(1.1); }
+  #start:focus-visible, #fs:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+  #start[disabled] { background: var(--line); color: var(--dim); cursor: wait; }
+
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
+  .lang { display: flex; align-items: center; gap: 10px; border: 0; margin: 0; padding: 0; }
+  .lang legend { float: left; margin-right: 10px; font: 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .seg { display: inline-flex; border: 1px solid var(--line); }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label { padding: 7px 14px; cursor: pointer; color: var(--dim); font-size: 13px; }
+  .seg label + input + label { border-left: 1px solid var(--line); }
+  .seg input:checked + label { background: var(--panel); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+  .seg input:focus-visible + label { outline: 2px solid var(--fg); outline-offset: -2px; }
+
+  .keys { border-top: 1px solid var(--line); padding-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 18px; }
+  .keys div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dotted var(--line); padding-bottom: 4px; }
+  .keys dt { color: var(--dim); }
+  .keys dd { margin: 0; font-family: var(--mono); color: var(--fg); text-align: right; }
+  .note { margin: 0; font-size: 12px; color: var(--dim); }
+  .note b { color: var(--fg); font-weight: 600; }
+
+  #hint {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; pointer-events: none;
+    padding: 10px 18px; background: rgba(18,20,14,.85); border: 1px solid var(--accent); color: var(--accent);
+    font: 15px var(--mono); letter-spacing: .06em;
+  }
+  #bar2 {
+    position: fixed; z-index: 2; display: flex; gap: 8px; align-items: center;
+    right: calc(10px + env(safe-area-inset-right, 0px)); top: calc(10px + env(safe-area-inset-top, 0px));
+    opacity: .35; transition: opacity .3s;
+  }
+  #bar2:hover { opacity: 1; }
+  #bar2 button { font: 12px var(--mono); color: var(--fg); background: var(--panel); border: 1px solid var(--line); padding: 4px 10px; cursor: pointer; }
+  #msg { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); z-index: 6; background: var(--alert); color: #fff; padding: 8px 14px; max-width: calc(100% - 32px); }
+  @media (prefers-reduced-motion: reduce) { .bar > div, #bar2 { transition: none; } }
+</style>
+
+<div id="stage"><canvas id="canvas" tabindex="0" width="640" height="480" aria-label="X Operations game screen"></canvas></div>
+<div id="hint" hidden>Click to aim · Esc releases the mouse</div>
+<div id="bar2" hidden><button id="fs" type="button">Fullscreen</button></div>
+<div id="msg" hidden></div>
+
+<div id="overlay">
+  <div class="card">
+    <div class="eyebrow">OpenXOPS 1.080 · X Operations 0.96 data</div>
+    <h1>X <span>Operations</span></h1>
+    <p class="lede">The 2003 freeware tactical shooter, compiled to WebAssembly from the OpenXOPS source. Missions, sounds and briefings are the original game files.</p>
+    <div class="load">
+      <div class="bar"><div id="barfill"></div></div>
+      <div id="status">Loading engine…</div>
+    </div>
+    <div class="actions">
+      <button id="start" type="button" disabled>Start</button>
+      <fieldset class="lang">
+        <legend>Mission text</legend>
+        <div class="seg">
+          <input type="radio" name="lang" id="lang-en" value="en" checked><label for="lang-en">English</label>
+          <input type="radio" name="lang" id="lang-ja" value="ja"><label for="lang-ja" lang="ja">日本語 <span lang="en">(original)</span></label>
+        </div>
+      </fieldset>
+    </div>
+    <dl class="keys">
+      <div><dt>Move</dt><dd>W A S D</dd></div>
+      <div><dt>Aim · fire</dt><dd>Mouse · L-click</dd></div>
+      <div><dt>Reload</dt><dd>R</dd></div>
+      <div><dt>Jump</dt><dd>Space</dd></div>
+      <div><dt>Walk</dt><dd>Tab</dd></div>
+      <div><dt>Scope zoom</dt><dd>Shift</dd></div>
+      <div><dt>Fire mode</dt><dd>X</dd></div>
+      <div><dt>Switch weapon</dt><dd>Z · 1 · 2</dd></div>
+      <div><dt>Drop weapon</dt><dd>G</dd></div>
+      <div><dt>Leave mission</dt><dd>Esc</dd></div>
+    </dl>
+    <p class="note">Needs a <b>keyboard and mouse</b>. In a mission, click the screen to capture the mouse; the first Esc releases it, a second Esc reaches the game. Mission text switches between an English translation and the original Japanese. Completed missions get a check mark in the mission list.</p>
+  </div>
+</div>
+
+<script>
+  var canvas = document.getElementById('canvas');
+  var aspect = 4 / 3;
+  function fit() {
+    var st = document.getElementById('stage'), cs = getComputedStyle(st);
+    var w = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    var h = st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    if (w / h > aspect) { w = Math.floor(h * aspect); } else { h = Math.floor(w / aspect); }
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  }
+  window.addEventListener('resize', fit); fit();
+
+  var barfill = document.getElementById('barfill'), statusEl = document.getElementById('status');
+  var hint = document.getElementById('hint'), msg = document.getElementById('msg'), startBtn = document.getElementById('start');
+
+  document.getElementById('fs').addEventListener('click', function () {
+    try {
+      if (!document.fullscreenElement) {
+        var p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+        if (p && p.catch) p.catch(function () {});
+      } else { document.exitFullscreen(); }
+    } catch (e) {}
+    canvas.focus();
+  });
+
+  function showMsg(t) { msg.textContent = t; msg.hidden = false; clearTimeout(showMsg.t); showMsg.t = setTimeout(function () { msg.hidden = true; }, 6000); }
+
+  var Module = {
+    canvas: canvas,
+    noInitialRun: true,
+    // Game data ships as xops-data.wasm because the host only serves standard web file types
+    locateFile: function (path, prefix) { return (path === 'xops.data' ? 'xops-data.wasm' : path); },
+    setStatus: function (t) {
+      var m = t && t.match(/\((\d+(?:\.\d+)?)\/(\d+)\)/);
+      if (m) {
+        var pct = Math.round(100 * m[1] / m[2]);
+        barfill.style.width = pct + '%';
+        statusEl.textContent = 'Downloading game data · ' + pct + '% of ' + (m[2] / 1048576).toFixed(1) + ' MB';
+      } else if (t) { statusEl.textContent = t; }
+    },
+    onRuntimeInitialized: function () {
+      barfill.style.width = '100%';
+      statusEl.textContent = 'Ready';
+      // Restore settings saved from the in-game Options screen
+      try {
+        FS.mkdir('/persist');
+        FS.mount(IDBFS, {}, '/persist');
+        FS.syncfs(true, function () {
+          try { FS.writeFile('/config.dat', FS.readFile('/persist/config.dat')); } catch (e) {}
+        });
+      } catch (e) {}
+      startBtn.disabled = false;
+      startBtn.focus();
+    },
+    xopsPersist: function () {
+      try { FS.writeFile('/persist/config.dat', FS.readFile('/config.dat')); FS.syncfs(false, function () {}); } catch (e) {}
+    },
+    xopsResize: function (w, h) { aspect = w / h; fit(); },
+    xopsSetAimHint: function (want, locked) { hint.hidden = !(want && !locked); },
+    xopsMessage: showMsg,
+    xopsExited: function () {
+      document.getElementById('overlay').hidden = false;
+      document.getElementById('bar2').hidden = true;
+      statusEl.textContent = 'Game closed';
+      startBtn.textContent = 'Restart';
+      startBtn.onclick = function () { location.reload(); };
+    },
+    print: function (t) { console.log(t); },
+    printErr: function (t) { console.warn(t); }
+  };
+
+  // Mission text language (English by default), remembered per browser
+  var langEn = document.getElementById('lang-en'), langJa = document.getElementById('lang-ja');
+  try { if (localStorage.getItem('xops-lang') === 'ja') langJa.checked = true; } catch (e) {}
+  [langEn, langJa].forEach(function (r) {
+    r.addEventListener('change', function () { try { localStorage.setItem('xops-lang', r.value); } catch (e) {} });
+  });
+  function applyLanguage() {
+    if (!langEn.checked || !window.XOPS_EN) return;   // Japanese: keep the original files
+    Object.keys(window.XOPS_EN).forEach(function (path) {
+      try { FS.writeFile('/' + path, window.XOPS_EN[path]); } catch (e) { console.warn('could not write', path, e); }
+    });
+  }
+
+  startBtn.onclick = function () {
+    applyLanguage();
+    document.querySelectorAll('input[name=lang]').forEach(function (r) { r.disabled = true; });
+    document.getElementById('overlay').hidden = true;
+    document.getElementById('bar2').hidden = false;
+    canvas.focus();
+    try { Module.callMain([]); } catch (e) { if (e !== 'unwind' && !(e && e.name === 'ExitStatus')) { showMsg('The game stopped: ' + e); } }
+  };
+
+  window.addEventListener('error', function (e) { if (e && e.message) statusEl.textContent = 'Error: ' + e.message; });
+  if (typeof WebAssembly !== 'object') statusEl.textContent = 'This browser cannot run WebAssembly.';
+</script>
+<script src="xops-en.js"></script>
+<script src="xops.js"></script>
