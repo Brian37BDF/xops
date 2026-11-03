@@ -94,7 +94,7 @@
 </style>
 
 <div id="stage"><canvas id="canvas" tabindex="0" width="640" height="480" aria-label="X Operations game screen"></canvas></div>
-<div id="hint" hidden>Click to aim · Esc releases the mouse</div>
+<div id="hint" hidden>Click to capture the mouse · Esc releases it</div>
 <div id="bar2" hidden><button id="fs" type="button">Fullscreen</button></div>
 <div id="msg" hidden></div>
 
@@ -129,7 +129,7 @@
       <div><dt>Drop weapon</dt><dd>G</dd></div>
       <div><dt>Leave mission</dt><dd>Esc</dd></div>
     </dl>
-    <p class="note">Needs a <b>keyboard and mouse</b>. In a mission, click the screen to capture the mouse; the first Esc releases it, a second Esc reaches the game. Mission text switches between an English translation and the original Japanese. Completed missions get a check mark in the mission list.</p>
+    <p class="note">Needs a <b>keyboard and mouse</b>. Your first click in the main menu captures the mouse, and it stays captured through briefings and missions. Esc releases it; click the game to capture it again. While it's released, a second Esc reaches the game. Mission text switches between an English translation and the original Japanese. Completed missions get a check mark in the mission list.</p>
   </div>
 </div>
 
@@ -164,7 +164,7 @@
     canvas: canvas,
     noInitialRun: true,
     // Game data ships as xops-data.wasm because the host only serves standard web file types
-    locateFile: function (path, prefix) { return (path === 'xops.data' ? 'xops-data.wasm' : path); },
+    locateFile: function (path, prefix) { return (path === 'xops.data' ? 'xops-data.wasm' : path) + '?v=' + XOPS_BUILD; },
     setStatus: function (t) {
       var m = t && t.match(/\((\d+(?:\.\d+)?)\/(\d+)\)/);
       if (m) {
@@ -229,5 +229,9 @@
   window.addEventListener('error', function (e) { if (e && e.message) statusEl.textContent = 'Error: ' + e.message; });
   if (typeof WebAssembly !== 'object') statusEl.textContent = 'This browser cannot run WebAssembly.';
 </script>
-<script src="xops-en.js"></script>
-<script src="xops.js"></script>
+<script>
+  // Bump on every release (here and in the two script tags) so browsers fetch the new files instead of cached ones
+  var XOPS_BUILD = '8';
+</script>
+<script src="xops-en.js?v=8"></script>
+<script src="xops.js?v=8"></script>
