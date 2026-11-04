@@ -81,6 +81,7 @@
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; pointer-events: none;
     padding: 10px 18px; background: rgba(18,20,14,.85); border: 1px solid var(--accent); color: var(--accent);
     font: 15px var(--mono); letter-spacing: .06em;
+    width: max-content; max-width: calc(100% - 48px); box-sizing: border-box; text-align: center;
   }
   #bar2 {
     position: fixed; z-index: 2; display: flex; gap: 8px; align-items: center;
@@ -94,7 +95,7 @@
 </style>
 
 <div id="stage"><canvas id="canvas" tabindex="0" width="640" height="480" aria-label="X Operations game screen"></canvas></div>
-<div id="hint" hidden>Click to capture the mouse · Esc releases it</div>
+<div id="hint" hidden>Mouse released - Press Esc again to exit to main menu or click the game to capture mouse again.</div>
 <div id="bar2" hidden><button id="fs" type="button">Fullscreen</button></div>
 <div id="msg" hidden></div>
 
@@ -118,7 +119,7 @@
       </fieldset>
     </div>
     <dl class="keys">
-      <div><dt>Move</dt><dd>W A S D</dd></div>
+      <div><dt>Move</dt><dd>W A S D · arrows</dd></div>
       <div><dt>Aim · fire</dt><dd>Mouse · L-click</dd></div>
       <div><dt>Reload</dt><dd>R</dd></div>
       <div><dt>Jump</dt><dd>Space</dd></div>
@@ -129,7 +130,7 @@
       <div><dt>Drop weapon</dt><dd>G</dd></div>
       <div><dt>Leave mission</dt><dd>Esc</dd></div>
     </dl>
-    <p class="note">Needs a <b>keyboard and mouse</b>. Your first click in the main menu captures the mouse, and it stays captured through briefings and missions. Esc releases it; click the game to capture it again. While it's released, a second Esc reaches the game. Mission text switches between an English translation and the original Japanese. Completed missions get a check mark in the mission list.</p>
+    <p class="note">Needs a <b>keyboard and mouse</b>. Start captures the mouse, and it stays captured through menus, briefings and missions. Esc releases it; click the game to capture it again. While it's released, a second Esc reaches the game. Mission text switches between an English translation and the original Japanese. Completed missions get a check mark in the mission list.</p>
   </div>
 </div>
 
@@ -191,7 +192,12 @@
       try { FS.writeFile('/persist/config.dat', FS.readFile('/config.dat')); FS.syncfs(false, function () {}); } catch (e) {}
     },
     xopsResize: function (w, h) { aspect = w / h; fit(); },
-    xopsSetAimHint: function (want, locked) { hint.hidden = !(want && !locked); },
+    xopsSetAimHint: function (released, inMission) {
+      var t = inMission ? 'Mouse released - Press Esc again to exit to main menu or click the game to capture mouse again.'
+                        : 'Mouse released - Click the game to capture mouse again.';
+      if (hint.textContent !== t) hint.textContent = t;
+      hint.hidden = !released;
+    },
     xopsMessage: showMsg,
     xopsExited: function () {
       document.getElementById('overlay').hidden = false;
@@ -224,6 +230,8 @@
     document.getElementById('bar2').hidden = false;
     canvas.focus();
     try { Module.callMain([]); } catch (e) { if (e !== 'unwind' && !(e && e.name === 'ExitStatus')) { showMsg('The game stopped: ' + e); } }
+    // Capture the mouse now (this click counts as permission); it stays captured until Esc
+    try { var pl = canvas.requestPointerLock && canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(function () {}); } catch (e) {}
   };
 
   window.addEventListener('error', function (e) { if (e && e.message) statusEl.textContent = 'Error: ' + e.message; });
@@ -231,7 +239,7 @@
 </script>
 <script>
   // Bump on every release (here and in the two script tags) so browsers fetch the new files instead of cached ones
-  var XOPS_BUILD = '8';
+  var XOPS_BUILD = '11';
 </script>
-<script src="xops-en.js?v=8"></script>
-<script src="xops.js?v=8"></script>
+<script src="xops-en.js?v=11"></script>
+<script src="xops.js?v=11"></script>
